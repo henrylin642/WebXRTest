@@ -22,6 +22,24 @@ export class SceneManager {
         this.progressText = document.getElementById('progress-text');
         this.totalObjectsToLoad = 0;
         this.loadedObjectsCount = 0;
+
+        // Iframe UI
+        this.iframeOverlay = document.getElementById('iframe-overlay');
+        this.webIframe = document.getElementById('web-iframe');
+        this.closeIframeBtn = document.getElementById('close-iframe');
+
+        if (this.closeIframeBtn) {
+            this.closeIframeBtn.addEventListener('click', () => {
+                this.closeIframe();
+            });
+        }
+    }
+
+    closeIframe() {
+        if (this.iframeOverlay) {
+            this.iframeOverlay.style.display = 'none';
+            if (this.webIframe) this.webIframe.src = ''; // Stop loading
+        }
     }
 
     updateLoadingProgress() {
@@ -576,7 +594,16 @@ export class SceneManager {
             case 8: // Open Web
                 if (values.url) {
                     this.log(`Action: Open Web ${values.url}`);
-                    window.open(values.url, '_blank');
+                    // window.open(values.url, '_blank'); // Old way
+
+                    // New way: Open in iframe overlay
+                    if (this.iframeOverlay && this.webIframe) {
+                        this.webIframe.src = values.url;
+                        this.iframeOverlay.style.display = 'flex';
+                    } else {
+                        // Fallback if elements missing
+                        window.open(values.url, '_blank');
+                    }
                 }
                 break;
 
