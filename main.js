@@ -87,15 +87,26 @@ function init() {
 }
 
 async function onARButtonClick() {
+  if (!window.isSecureContext) {
+    alert('WebXR requires HTTPS (Secure Context).');
+    return;
+  }
+
   if (!navigator.xr) {
-    alert('WebXR not supported');
+    alert('WebXR not supported in this browser.\nOn iOS, use "WebXR Viewer" app.\nOn Android, use Chrome.');
+    return;
+  }
+
+  const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
+  if (!isSupported) {
+    alert('ARCore/ARKit not supported or enabled on this device.');
     return;
   }
 
   try {
     log('Requesting Session...');
     const session = await navigator.xr.requestSession('immersive-ar', {
-      requiredFeatures: [], // No hit-test needed for origin
+      requiredFeatures: [],
       optionalFeatures: ['dom-overlay'],
       domOverlay: { root: document.getElementById('overlay') }
     });
