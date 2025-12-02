@@ -13,6 +13,16 @@
     <div id="overlay">
       <button id="ar-button">Start AR</button>
     </div>
+    <div id="loading-screen" style="display: none;">
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <p>正在載入場景，請保持裝置靜止...</p>
+        <div class="progress-container">
+          <div id="progress-fill"></div>
+        </div>
+        <p id="progress-text">0%</p>
+      </div>
+    </div>
     <div id="debug-console"></div>
   </div>
   <script type="module" src="/main.js"></script>

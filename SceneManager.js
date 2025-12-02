@@ -15,6 +15,30 @@ export class SceneManager {
         this.gltfLoader = new GLTFLoader();
 
         this.tweens = []; // Active animations
+
+        // Loading UI
+        this.loadingScreen = document.getElementById('loading-screen');
+        this.progressFill = document.getElementById('progress-fill');
+        this.progressText = document.getElementById('progress-text');
+        this.totalObjectsToLoad = 0;
+        this.loadedObjectsCount = 0;
+    }
+
+    updateLoadingProgress() {
+        if (this.totalObjectsToLoad === 0) return;
+
+        this.loadedObjectsCount++;
+        const percent = Math.floor((this.loadedObjectsCount / this.totalObjectsToLoad) * 100);
+
+        if (this.progressFill) this.progressFill.style.width = `${percent}%`;
+        if (this.progressText) this.progressText.innerText = `${percent}%`;
+
+        if (this.loadedObjectsCount >= this.totalObjectsToLoad) {
+            this.log('All assets loaded.');
+            setTimeout(() => {
+                if (this.loadingScreen) this.loadingScreen.style.display = 'none';
+            }, 500); // Small delay for smooth finish
+        }
     }
 
     // Load JSON
@@ -43,6 +67,25 @@ export class SceneManager {
     }
 
     spawnObjects(objectList) {
+        // Filter valid objects first to know total count
+        const validObjects = objectList.filter(obj => {
+            const type = obj.model?.type;
+            if (type === 5 && obj.model?.texture?.url) return true;
+            if (type === 8 && (obj.model?.android_texture?.url || obj.model?.ios_texture?.url)) return true;
+            if (type === 9 && obj.model?.texture?.url) return true;
+            return false;
+        });
+
+        this.totalObjectsToLoad = validObjects.length;
+        this.loadedObjectsCount = 0;
+
+        if (this.totalObjectsToLoad > 0) {
+            if (this.loadingScreen) this.loadingScreen.style.display = 'flex';
+            this.log(`Starting load for ${this.totalObjectsToLoad} objects...`);
+        } else {
+            if (this.loadingScreen) this.loadingScreen.style.display = 'none';
+        }
+
         objectList.forEach(objData => {
             const type = objData.model?.type;
             const id = objData.id || 'unknown';
@@ -51,31 +94,22 @@ export class SceneManager {
                 // Type 5: Image Plane
                 if (objData.model?.texture?.url) {
                     this.createImageObject(objData);
-                } else {
-                    this.log(`Object ${id} (Type 5) missing texture URL`);
                 }
             } else if (type === 8) {
                 // Type 8: GLB Model
-                // Check ios_texture or android_texture for URL
                 const url = objData.model?.android_texture?.url || objData.model?.ios_texture?.url;
                 if (url) {
                     this.createGLBObject(objData, url);
-                } else {
-                    this.log(`Object ${id} (Type 8) missing GLB URL`);
                 }
             } else if (type === 9) {
                 // Type 9: Video Plane
                 if (objData.model?.texture?.url) {
                     this.createVideoObject(objData);
-                } else {
-                    this.log(`Object ${id} (Type 9) missing video URL`);
                 }
             } else {
                 this.log(`Skipping object ${id}: Unknown type ${type} or invalid structure`);
-                console.warn('Skipped object data:', objData);
             }
         });
-        this.log(`Processed ${objectList.length} items. Active objects: ${this.objects.length}`);
     }
 
     createImageObject(data) {
@@ -113,10 +147,12 @@ export class SceneManager {
                 const mesh = new THREE.Mesh(geometry, material);
                 this.setupObject(mesh, data);
                 this.log(`Created Image Object ${data.id}`);
+                this.updateLoadingProgress();
             },
             undefined,
             (err) => {
-                this.log(`Error loading image for ${data.id}: ${err}`);
+                this.log(`Error loading texture for ${data.id}: ${err}`);
+                this.updateLoadingProgress(); // Still count as processed even if error
             }
         );
     }
@@ -155,6 +191,7 @@ export class SceneManager {
         const mesh = new THREE.Mesh(geometry, material);
         this.setupObject(mesh, data);
         this.log(`Created Video Object ${data.id}`);
+        this.updateLoadingProgress();
     }
 
     createGLBObject(data, url) {
@@ -173,6 +210,7 @@ export class SceneManager {
                 if (gltf.animations && gltf.animations.length > 0) {
                     const mixer = new THREE.AnimationMixer(model);
                     model.userData.mixer = mixer;
+                    model.userData.animations = gltf.animations; // Store for later access
 
                     // Determine clip to play
                     // If start_frame/end_frame/fps are provided, we might need to subclip
@@ -202,10 +240,12 @@ export class SceneManager {
                 }
 
                 this.log(`Created GLB Object ${data.id}`);
+                this.updateLoadingProgress();
             },
             undefined,
             (err) => {
                 this.log(`Error loading GLB for ${data.id}: ${err}`);
+                this.updateLoadingProgress(); // Still count as processed even if error
             }
         );
     }
@@ -571,25 +611,26 @@ export class SceneManager {
                         // Stop all existing actions
                         target.userData.mixer.stopAllAction();
 
-                        // We assume the first clip is the main one for now
-                        const clip = target.userData.mixer._actions[0]?.getClip();
-                        if (clip) {
-                            const action = target.userData.mixer.clipAction(clip);
-                            action.reset();
-                            action.time = startTime;
-                            action.timeScale = 1;
-                            action.play();
+                        // Play ALL clips found in userData.animations or fallback to mixer root
+                        const clips = target.userData.animations || [];
 
-                            // We need to stop it after 'duration'
-                            // But since we have a tween system, we can use it to stop the animation
-                            // Or better, use AnimationAction.setDuration if we want to scale it, 
-                            // but here we want to play a slice.
-                            // A simple way is to schedule a stop.
-                            setTimeout(() => {
-                                action.paused = true; // or stop()
-                            }, duration * 1000);
+                        if (clips.length > 0) {
+                            clips.forEach(clip => {
+                                const action = target.userData.mixer.clipAction(clip);
+                                action.reset();
+                                action.time = startTime;
+                                action.timeScale = 1;
+                                action.play();
 
-                            this.log(`Action: Play animation frames ${startFrame}-${endFrame} (${duration}s) on ${this.getObjectName(target)}`);
+                                // Schedule stop
+                                setTimeout(() => {
+                                    action.paused = true;
+                                }, duration * 1000);
+                            });
+                            this.log(`Action: Play ${clips.length} animations frames ${startFrame}-${endFrame} (${duration}s) on ${this.getObjectName(target)}`);
+                        } else {
+                            // Fallback if no animations array (shouldn't happen with new createGLBObject)
+                            this.log(`Action: No animations found on ${this.getObjectName(target)}`);
                         }
                     }
                 });
