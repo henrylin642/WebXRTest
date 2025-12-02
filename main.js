@@ -108,7 +108,7 @@ async function onARButtonClick() {
     const session = await navigator.xr.requestSession('immersive-ar', {
       requiredFeatures: [],
       optionalFeatures: ['dom-overlay'],
-      domOverlay: { root: document.getElementById('overlay') }
+      domOverlay: { root: document.getElementById('ar-overlay-root') }
     });
 
     log('Session created. Origin is at camera start.');
@@ -145,10 +145,10 @@ function onSelect() {
   // Interaction Logic
   const target = sceneManager.raycast(controller);
   if (target) {
-    log(`Clicked on: ${target.userData.id}`);
-    // Simple feedback
-    target.scale.multiplyScalar(1.2);
-    setTimeout(() => target.scale.multiplyScalar(1 / 1.2), 200);
+    log(`Clicked on: ${sceneManager.getObjectName(target)}`);
+
+    // Trigger Touch Event (ID: 1)
+    sceneManager.triggerEvent(target.userData.id, 1);
   }
 }
 
