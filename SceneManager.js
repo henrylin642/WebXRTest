@@ -55,8 +55,25 @@ export class SceneManager {
             this.log('All assets loaded.');
             setTimeout(() => {
                 if (this.loadingScreen) this.loadingScreen.style.display = 'none';
+                this.triggerAutoStartEvents(); // Trigger ID 9 events
             }, 500); // Small delay for smooth finish
         }
+    }
+
+    triggerAutoStartEvents() {
+        this.log('Checking for Auto-Start Events (ID 9)...');
+        this.objects.forEach(obj => {
+            const events = obj.userData.events;
+            if (events) {
+                const autoStartEvents = events.filter(e => e.id === 9);
+                autoStartEvents.forEach(evt => {
+                    this.log(`Auto-Start Event 9 triggered on object ${this.getObjectName(obj)}`);
+                    if (evt.actions && evt.actions.length > 0) {
+                        this.executeActionSequence(evt.actions, obj);
+                    }
+                });
+            }
+        });
     }
 
     // Load JSON
@@ -410,7 +427,12 @@ export class SceneManager {
                     continue;
                 }
 
-                // 2. Check visibility up the chain
+                // 2. Check Disabled State (Interaction Disabled)
+                if (target.userData.is_disabled) {
+                    continue;
+                }
+
+                // 3. Check visibility up the chain
                 let current = target;
                 while (current && current !== this.worldRoot) {
                     if (!current.visible) {
@@ -582,12 +604,18 @@ export class SceneManager {
                 });
                 break;
 
-            case 7: // Show Hidden Node
-            case 36: // Enable
+            case 7: // Show Hidden Node (Actually Show)
                 targets.forEach(target => {
-                    this.log(`Action: Show/Enable object ${this.getObjectName(target)}`);
-                    target.userData.desiredVisibility = true; // Update desired state
-                    // Actual visibility will be updated in next update loop based on distance
+                    this.log(`Action: Show object ${this.getObjectName(target)}`);
+                    target.userData.desiredVisibility = true;
+                    target.visible = true;
+                });
+                break;
+
+            case 36: // Enable (Enable Interaction Only)
+                targets.forEach(target => {
+                    this.log(`Action: Enable interaction for object ${this.getObjectName(target)}`);
+                    target.userData.is_disabled = false;
                 });
                 break;
 
@@ -607,12 +635,19 @@ export class SceneManager {
                 }
                 break;
 
-            case 9: // Hidden Node
-            case 35: // Disable
+            case 9: // Hidden Node (Actually Hide)
                 targets.forEach(target => {
-                    this.log(`Action: Hide/Disable object ${this.getObjectName(target)}`);
-                    target.userData.desiredVisibility = false; // Update desired state
-                    target.visible = false; // Force hide immediately
+                    this.log(`Action: Hide object ${this.getObjectName(target)}`);
+                    target.userData.desiredVisibility = false;
+                    target.visible = false;
+                });
+                break;
+
+            case 35: // Disable (Disable Interaction Only)
+                targets.forEach(target => {
+                    this.log(`Action: Disable interaction for object ${this.getObjectName(target)}`);
+                    target.userData.is_disabled = true;
+                    // Do NOT hide. User explicitly requested Disable != Hide.
                 });
                 break;
 
