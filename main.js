@@ -59,32 +59,93 @@ if (settingsBtn) {
   });
 }
 
-// UI: Snapshot Button Handler
-// Hides all overlay UI for 3 seconds to allow user to take a system screenshot
+// UI: Snapshot & Gallery Logic
+const galleryPhotos = []; // { id, url, status: 'uploading'|'done' }
 const snapshotBtn = document.getElementById('snapshot-btn');
+const galleryStrip = document.getElementById('gallery-strip');
+const previewModal = document.getElementById('photo-preview-modal');
+const previewImg = document.getElementById('preview-img');
+const closePreview = document.getElementById('close-preview');
+
 if (snapshotBtn) {
   snapshotBtn.addEventListener('click', () => {
-    // Collect UI elements to hide
-    const uiElements = [
-      document.getElementById('settings-btn'),
-      document.getElementById('slam-status'),
-      document.getElementById('pose-info'),
-      document.getElementById('snapshot-btn'), // Hide self too
-      document.getElementById('step-instructions-container'),
-      document.getElementById('debug-console')
-    ];
+    // Flash effect
+    snapshotBtn.style.background = 'white';
+    setTimeout(() => snapshotBtn.style.background = 'rgba(255,255,255,0.2)', 100);
 
-    // Hide them
-    uiElements.forEach(el => {
-      if (el) el.style.opacity = '0';
+    // CAPTURE CANVAS
+    try {
+      // Must have preserveDrawingBuffer: true
+      const dataURL = renderer.domElement.toDataURL('image/png');
+
+      // Add to Gallery
+      const photoId = Date.now();
+      const photoObj = { id: photoId, url: dataURL, status: 'uploading' };
+      galleryPhotos.push(photoObj);
+
+      updateGalleryUI();
+
+      // Simulate Cloud Upload
+      setTimeout(() => {
+        photoObj.status = 'done';
+        updateGalleryUI();
+      }, 2000); // 2 seconds upload time
+
+    } catch (e) {
+      log('Snapshot failed: ' + e);
+      alert('Snapshot failed. See debug log.');
+    }
+  });
+}
+
+function updateGalleryUI() {
+  if (!galleryStrip) return;
+  galleryStrip.innerHTML = '';
+
+  const total = galleryPhotos.length;
+  const visiblePhotos = galleryPhotos.slice(-3);
+  const hiddenCount = Math.max(0, total - 3);
+
+  if (hiddenCount > 0) {
+    const badge = document.createElement('div');
+    badge.className = 'gallery-overflow';
+    badge.innerText = `+${hiddenCount}`;
+    galleryStrip.appendChild(badge);
+  }
+
+  visiblePhotos.forEach(photo => {
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb-item';
+
+    const img = document.createElement('img');
+    img.src = photo.url;
+
+    const status = document.createElement('div');
+    status.className = 'thumb-status ' + (photo.status === 'uploading' ? 'thumb-uploading' : 'thumb-done');
+
+    thumb.appendChild(img);
+    thumb.appendChild(status);
+
+    thumb.addEventListener('click', () => {
+      if (previewModal && previewImg) {
+        previewImg.src = photo.url;
+        previewModal.style.display = 'flex';
+      }
     });
 
-    // Restore after 3 seconds
-    setTimeout(() => {
-      uiElements.forEach(el => {
-        if (el) el.style.opacity = '1';
-      });
-    }, 3000);
+    galleryStrip.appendChild(thumb);
+  });
+}
+
+// Modal Close logic
+if (closePreview) {
+  closePreview.addEventListener('click', () => {
+    previewModal.style.display = 'none';
+  });
+}
+if (previewModal) {
+  previewModal.addEventListener('click', (e) => {
+    if (e.target === previewModal) previewModal.style.display = 'none';
   });
 }
 
@@ -113,7 +174,11 @@ function init() {
 
   // Renderer
   try {
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      preserveDrawingBuffer: true // Required for screenshot capture
+    });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
