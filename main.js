@@ -75,6 +75,14 @@ if (snapshotBtn) {
 
     // CAPTURE CANVAS
     try {
+      // Check Camera Access Status (Experimental)
+      if (renderer.xr) {
+        const session = renderer.xr.getSession();
+        if (session && session.enabledFeatures && session.enabledFeatures.has('camera-access')) {
+          log('Experiment: Camera Access is ENABLED! (Raw texture available)');
+        }
+      }
+
       // Must have preserveDrawingBuffer: true
       const dataURL = renderer.domElement.toDataURL('image/png');
 
@@ -238,7 +246,7 @@ async function onARButtonClick() {
           widthInMeters: window.currentWidth
         }
       ],
-      optionalFeatures: ['dom-overlay'],
+      optionalFeatures: ['dom-overlay', 'camera-access'],
       domOverlay: { root: document.getElementById('ar-overlay-root') }
     });
 
