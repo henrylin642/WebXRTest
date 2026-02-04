@@ -160,6 +160,12 @@ async function onARButtonClick() {
     // Let's just create a quick fix: reparent sceneManager.worldRoot
     trackingRoot.add(sceneManager.worldRoot);
 
+    // FIX: Rotate content -90 degrees on X axis.
+    // User reported Y axis is perpendicular to poster (Normal).
+    // We want Y axis to be Up (along the poster).
+    // This rotation aligns standard 3D Y-up with the Poster's Vertical Up.
+    sceneManager.worldRoot.rotation.x = -Math.PI / 2;
+
     // Turn off auto-update matrix until we find the image?
     // trackingRoot.visible = false; // Optional: hide until found
 
