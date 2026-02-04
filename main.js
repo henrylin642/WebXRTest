@@ -30,6 +30,7 @@ let camera, scene, renderer;
 let controller;
 let sceneManager;
 const clock = new THREE.Clock();
+let isImageFound = false; // State for Image Tracking UI
 
 init();
 animate();
