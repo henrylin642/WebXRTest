@@ -306,12 +306,26 @@ function render(timestamp, frame) {
             const pose = frame.getPose(result.imageSpace, referenceSpace);
             if (pose) {
               trackingRoot.position.copy(pose.transform.position);
-              trackingRoot.quaternion.copy(pose.transform.orientation);
+
+              // GRAVITY ALIGNMENT (Levelling)
+              // The poster might be tilted (Pitch/Roll). We want the content to be perfectly vertical (Gravity Aligned).
+              // We only want to keep the "Facing Direction" (Yaw) from the poster.
+
+              const rawQuat = pose.transform.orientation;
+              const euler = new THREE.Euler(0, 0, 0, 'YXZ'); // YXZ order ensures Y (Yaw) is independent
+              euler.setFromQuaternion(rawQuat);
+
+              // Create a new rotation using ONLY the Y component (Yaw)
+              // This ignores the X (Pitch) and Z (Roll) of the poster
+              const leveledQuat = new THREE.Quaternion();
+              leveledQuat.setFromEuler(new THREE.Euler(0, euler.y, 0));
+
+              trackingRoot.quaternion.copy(leveledQuat);
 
               // LOCK POSITION
               // Only lock if trackingState is 'tracked' (High quality)
               window.hasLockedPosition = true;
-              log('Position LOCKED. Ignoring future image updates.');
+              log('Position LOCKED (Gravity Aligned). Ignoring future image updates.');
             }
 
             // State Transition: 1 -> 2
