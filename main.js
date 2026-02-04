@@ -105,7 +105,7 @@ async function onARButtonClick() {
   }
 
   try {
-    log(`Load Image Tracking... (Width: ${currentWidth}m)`);
+    log(`Load Image Tracking... (Width: ${window.currentWidth}m)`);
     const imgBitmap = await createImageBitmap(await (await fetch('/ref_with_led.png')).blob());
 
     log('Requesting Session...');
@@ -114,7 +114,7 @@ async function onARButtonClick() {
       trackedImages: [
         {
           image: imgBitmap,
-          widthInMeters: currentWidth
+          widthInMeters: window.currentWidth
         }
       ],
       optionalFeatures: ['dom-overlay'],
@@ -291,6 +291,31 @@ function render(timestamp, frame) {
             isImageFound = true;
             updateStepUI(2); // AR 定位完成
 
+            // --- CONFIGURATION ---
+            // Default width is 0.6m (60cm). User can override via Settings button.
+            const DEFAULT_WIDTH = 0.6;
+            window.currentWidth = parseFloat(localStorage.getItem('img_width_meters')) || DEFAULT_WIDTH;
+
+            // UI: Settings Button Handler
+            const settingsBtn = document.getElementById('settings-btn');
+            if (settingsBtn) {
+              settingsBtn.addEventListener('click', () => {
+                const newWidth = prompt(
+                  `Current Image Width: ${window.currentWidth}m\n\nEnter new width in meters (e.g. 0.55):`,
+                  window.currentWidth
+                );
+                if (newWidth) {
+                  const val = parseFloat(newWidth);
+                  if (!isNaN(val) && val > 0) {
+                    localStorage.setItem('img_width_meters', val);
+                    alert(`Saved! Width set to ${val}m. RELOADING PAGE...`);
+                    window.location.reload();
+                  } else {
+                    alert('Invalid number.');
+                  }
+                }
+              });
+            }
             // Auto-hide UI after a few seconds and start experience
             setTimeout(() => {
               updateStepUI(3); // 開始體驗
