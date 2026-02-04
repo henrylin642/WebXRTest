@@ -255,19 +255,19 @@ function showPreview(url) {
 }
 
 // Global UI Init - Preview Modal Close
-document.addEventListener('DOMContentLoaded', () => {
-  const closeBtn = document.getElementById('close-preview');
-  const modal = document.getElementById('photo-preview-modal');
-  if (closeBtn && modal) {
-    closeBtn.addEventListener('click', () => {
-      modal.style.display = 'none';
-    });
-    // Also close on background click
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.style.display = 'none';
-    });
-  }
-});
+// Modules run after DOM is ready, so we can attach directly.
+const closeBtn = document.getElementById('close-preview');
+const previewModal = document.getElementById('photo-preview-modal');
+if (closeBtn && previewModal) {
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // Prevent modal background click from firing
+    previewModal.style.display = 'none';
+  });
+  // Also close on background click
+  previewModal.addEventListener('click', (e) => {
+    if (e.target === previewModal) previewModal.style.display = 'none';
+  });
+}
 
 init();
 animate();
