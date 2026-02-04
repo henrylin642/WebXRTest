@@ -105,7 +105,7 @@ async function onARButtonClick() {
   }
 
   try {
-    log('Load Image Tracking...');
+    log(`Load Image Tracking... (Width: ${currentWidth}m)`);
     const imgBitmap = await createImageBitmap(await (await fetch('/ref_with_led.png')).blob());
 
     log('Requesting Session...');
@@ -114,7 +114,7 @@ async function onARButtonClick() {
       trackedImages: [
         {
           image: imgBitmap,
-          widthInMeters: 0.5 // Reset to 50cm for debugging
+          widthInMeters: currentWidth
         }
       ],
       optionalFeatures: ['dom-overlay'],
@@ -160,9 +160,11 @@ async function onARButtonClick() {
     // Let's just create a quick fix: reparent sceneManager.worldRoot
     trackingRoot.add(sceneManager.worldRoot);
 
-    // DEBUG: RESET TRANSFORMS
-    // No rotation, no offset. Check raw alignment.
-    // sceneManager.worldRoot.rotation.x = -Math.PI / 2;
+    // FIX: Rotate content -90 degrees on X axis.
+    // User reported Y axis is perpendicular to poster (Normal).
+    // We want Y axis to be Up (along the poster).
+    // This rotation aligns standard 3D Y-up with the Poster's Vertical Up.
+    sceneManager.worldRoot.rotation.x = -Math.PI / 2;
 
     // OFFSET: Align Origin with Middle LED
     // The Image Origin is the center of the cropped image.
@@ -173,7 +175,7 @@ async function onARButtonClick() {
     // So "Top of Image" is -Z direction.
     // The LED is at the top, approx 25cm from center.
     // We move the content origin to align with that.
-    // sceneManager.worldRoot.position.z = -0.25;
+    sceneManager.worldRoot.position.z = -0.25;
     // sceneManager.worldRoot.position.y = 0.0; // Reset Y if previously set
 
     // VISUALIZATION: Add Origin Axes (RGB = XYZ)
