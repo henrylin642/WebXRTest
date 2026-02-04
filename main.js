@@ -259,6 +259,7 @@ function showPreview(data) {
 // Global UI Init - Preview Modal Actions
 const saveBtn = document.getElementById('save-photo');
 const shareBtn = document.getElementById('share-photo');
+const closePreviewBtn = document.getElementById('close-preview-btn');
 
 if (saveBtn) {
   saveBtn.onclick = (e) => {
@@ -288,6 +289,13 @@ if (shareBtn) {
     } else {
       alert('Your browser does not support sharing files.');
     }
+  };
+}
+
+if (closePreviewBtn) {
+  closePreviewBtn.onclick = (e) => {
+    e.stopPropagation();
+    if (previewModal) previewModal.style.display = 'none';
   };
 }
 

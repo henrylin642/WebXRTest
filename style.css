@@ -317,45 +317,34 @@ body {
 }
 
 #close-preview {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 50px;
-  height: 50px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  font-size: 40px;
-  line-height: 45px;
-  text-align: center;
-  border-radius: 50%;
-  cursor: pointer;
-  z-index: 2100;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  display: none;
+  /* Hidden to avoid system notification overlap */
 }
 
 .preview-actions {
   margin-top: 20px;
   display: flex;
   justify-content: center;
-  gap: 15px;
+  gap: 10px;
+  /* Reduced gap */
   width: 100%;
 }
 
 .preview-actions button {
-  padding: 12px 20px;
+  padding: 10px 15px;
+  /* Reduced padding */
   border-radius: 30px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   font-weight: bold;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
+  /* Slightly smaller font */
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   transition: transform 0.1s, background-color 0.2s;
   pointer-events: auto;
+  white-space: nowrap;
 }
 
 .preview-actions button:active {
@@ -363,7 +352,7 @@ body {
 }
 
 #save-photo {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   color: white;
   backdrop-filter: blur(5px);
 }
@@ -371,6 +360,12 @@ body {
 #share-photo {
   background: #007bff;
   color: white;
+}
+
+#close-preview-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ff4444;
+  /* Distinguish with red text */
 }
 
 /* --- AR Step Instructions --- */
