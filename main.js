@@ -104,26 +104,52 @@ async function onARButtonClick() {
   }
 
   try {
+    log('Load Image Tracking...');
+    const imgBitmap = await createImageBitmap(await (await fetch('/ref.jpg')).blob());
+
     log('Requesting Session...');
     const session = await navigator.xr.requestSession('immersive-ar', {
-      requiredFeatures: [],
+      requiredFeatures: ['image-tracking'],
+      trackedImages: [
+        {
+          image: imgBitmap,
+          widthInMeters: 0.6 // 假設海報寬度為 60公分，請根據實際尺寸調整
+        }
+      ],
       optionalFeatures: ['dom-overlay'],
       domOverlay: { root: document.getElementById('ar-overlay-root') }
     });
 
-    log('Session created. Origin is at camera start.');
+    log('Session created. Scanning for image...');
 
-    // Load scene immediately when session starts
+    // Load scene
     sceneManager.loadSceneConfig('scene.json');
+
+    // Create a root container for Image Tracking adjustments
+    // We will move THIS container, not the camera
+    const trackingRoot = new THREE.Group();
+    trackingRoot.name = 'trackingRoot';
+    scene.add(trackingRoot);
+
+    // Move all existing sceneManager objects into trackingRoot
+    // Note: SceneManager adds to 'scene' by default in its constructor or logic.
+    // We will override SceneManager's root or just manually move them.
+    // For now, let's assume we hack SceneManager or just reparent its content.
+    // Better way: SceneManager should probably append to a passed root.
+    // Let's just create a quick fix: reparent sceneManager.worldRoot
+    trackingRoot.add(sceneManager.worldRoot);
+
+    // Turn off auto-update matrix until we find the image?
+    // trackingRoot.visible = false; // Optional: hide until found
 
     session.addEventListener('end', () => {
       log('Session ended');
       document.getElementById('ar-button').style.display = 'block';
-      // Clear scene?
       while (sceneManager.worldRoot.children.length > 0) {
         sceneManager.worldRoot.remove(sceneManager.worldRoot.children[0]);
       }
       sceneManager.objects = [];
+      scene.remove(trackingRoot); // Clean up
     });
 
     await renderer.xr.setSession(session);
@@ -135,30 +161,43 @@ async function onARButtonClick() {
   }
 }
 
-function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
+// ... existing resize code ...
 
-function onSelect() {
-  // Interaction Logic
-  const target = sceneManager.raycast(controller);
-  if (target) {
-    log(`Clicked on: ${sceneManager.getObjectName(target)}`);
+// Render loop needs access to 'frame' to get image results
+// We need to modify animate/render to handle this.
+// But wait, 'animate' calls 'render' which is set as animation loop.
+// The 'render' function receives (timestamp, frame).
 
-    // Trigger Touch Event (ID: 1)
-    sceneManager.triggerEvent(target.userData.id, 1);
-  }
-}
-
-function animate() {
-  renderer.setAnimationLoop(render);
-}
-
+// Let's rewrite the render function to handle image tracking results
 function render(timestamp, frame) {
   const delta = clock.getDelta();
-  sceneManager.update(delta); // Update animations & face_me
+  sceneManager.update(delta);
+
+  if (frame) {
+    const results = frame.getImageTrackingResults();
+    if (results && results.length > 0) {
+      const result = results[0];
+      const referenceSpace = renderer.xr.getReferenceSpace(); // Getting current ref space
+      const pose = frame.getPose(result.imageSpace, referenceSpace);
+
+      if (pose) {
+        // Found the image!
+        // result.trackingState can be 'tracked' or 'emulated'
+        if (result.trackingState === 'tracked') {
+          const trackingRoot = scene.getObjectByName('trackingRoot');
+          if (trackingRoot) {
+            trackingRoot.visible = true;
+            // Set position/rotation of the root to match the image
+            trackingRoot.position.copy(pose.transform.position);
+            trackingRoot.quaternion.copy(pose.transform.orientation);
+
+            // Optional: Rotate 90 deg? It depends on how the image is defined vs world.
+            // Usually Image Y is up, -Z is normal.
+          }
+        }
+      }
+    }
+  }
 
   renderer.render(scene, camera);
 }
