@@ -263,8 +263,43 @@ function updateGalleryUI() {
     const overflow = document.createElement('div');
     overflow.className = 'gallery-overflow';
     overflow.innerText = `+${photoCache.length - 3}`;
+    overflow.onclick = (e) => {
+      e.stopPropagation();
+      showFullGallery();
+    };
     gallery.appendChild(overflow);
   }
+}
+
+/**
+ * Shows all photos in a full-screen grid
+ */
+function showFullGallery() {
+  const overlay = document.getElementById('full-gallery-overlay');
+  const grid = document.getElementById('full-gallery-grid');
+  if (!overlay || !grid) return;
+
+  grid.innerHTML = '';
+  photoCache.forEach(data => {
+    const item = document.createElement('div');
+    item.className = 'grid-item';
+    const img = document.createElement('img');
+    img.src = data.url;
+    item.appendChild(img);
+    item.onclick = () => showPreview(data);
+    grid.appendChild(item);
+  });
+
+  overlay.style.display = 'flex';
+}
+
+// Global UI Init - Full Gallery Close
+const closeFullGalleryBtn = document.getElementById('close-full-gallery');
+if (closeFullGalleryBtn) {
+  closeFullGalleryBtn.onclick = () => {
+    const overlay = document.getElementById('full-gallery-overlay');
+    if (overlay) overlay.style.display = 'none';
+  };
 }
 
 /**
@@ -560,6 +595,8 @@ function setARUIVisible(visible) {
   if (!visible) {
     const gallery = document.getElementById('gallery-strip');
     if (gallery) gallery.style.display = 'none';
+    const fullGallery = document.getElementById('full-gallery-overlay');
+    if (fullGallery) fullGallery.style.display = 'none';
     const instructions = document.getElementById('step-instructions-container');
     if (instructions) instructions.style.display = 'none';
     const preview = document.getElementById('photo-preview-modal');
