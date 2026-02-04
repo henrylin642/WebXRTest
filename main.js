@@ -59,95 +59,126 @@ if (settingsBtn) {
   });
 }
 
-// UI: Snapshot Button Handler
-// Attempts to capture a composite screenshot or fallback to UI hiding
+// Snapshot State
+let pendingScreenshot = false;
 const snapshotBtn = document.getElementById('snapshot-btn');
 if (snapshotBtn) {
-  snapshotBtn.addEventListener('click', async () => {
-    log('Snapshot triggered...');
+  snapshotBtn.addEventListener('click', () => {
+    log('Snapshot requested. Waiting for next frame...');
+    pendingScreenshot = true;
 
     // Flash effect
     snapshotBtn.style.background = 'white';
     setTimeout(() => snapshotBtn.style.background = 'rgba(255,255,255,0.2)', 100);
-
-    // Collect UI elements to hide for cleaner capture if fallback handles it
-    const uiElements = [
-      document.getElementById('settings-btn'),
-      document.getElementById('slam-status'),
-      document.getElementById('pose-info'),
-      document.getElementById('snapshot-btn'),
-      document.getElementById('step-instructions-container'),
-      document.getElementById('debug-console')
-    ];
-
-    try {
-      // 1. Hide UI
-      uiElements.forEach(el => { if (el) el.style.opacity = '0'; });
-
-      // 2. Small delay to ensure UI is hidden in next frame
-      await new Promise(r => setTimeout(r, 100));
-
-      // 3. Perform Capture
-      await takeScreenshot();
-
-      log('Snapshot capture success.');
-    } catch (err) {
-      error('Snapshot failed: ' + err.message);
-    } finally {
-      // 4. Restore UI
-      uiElements.forEach(el => { if (el) el.style.opacity = '1'; });
-    }
   });
 }
 
 /**
  * Advanced Screenshot: Composites WebXR Camera Texture + WebGL Scene
+ * Requires 'frame' and 'renderer' to get raw camera feed.
  */
-async function takeScreenshot() {
-  if (!renderer || !renderer.xr.isPresenting) {
-    throw new Error('XR Session not active');
-  }
-
-  const session = renderer.xr.getSession();
+async function processScreenshot(frame, renderer) {
+  const session = frame.session;
   const gl = renderer.getContext();
 
-  // Create a temporary canvas for compositing
+  // 0. Collect UI elements to hide
+  const uiElements = [
+    document.getElementById('settings-btn'),
+    document.getElementById('slam-status'),
+    document.getElementById('pose-info'),
+    document.getElementById('snapshot-btn'),
+    document.getElementById('step-instructions-container'),
+    document.getElementById('debug-console')
+  ];
+
+  // 1. Hide UI
+  uiElements.forEach(el => { if (el) el.style.opacity = '0'; });
+
+  // 2. Capture Canvas Setup
   const captureCanvas = document.createElement('canvas');
   captureCanvas.width = renderer.domElement.width;
   captureCanvas.height = renderer.domElement.height;
   const ctx = captureCanvas.getContext('2d');
 
-  // Note: In WebXR, the camera feed is usually NOT in the main canvas 
-  // unless we use specific tech to draw it there.
-  // With camera-access, we can potentially get the binding.
+  try {
+    // 3. Try to get Raw Camera Feed
+    let cameraFound = false;
+    if (session.cameraAccessActive && typeof XRWebGLBinding !== 'undefined') {
+      const referenceSpace = renderer.xr.getReferenceSpace();
+      const viewerPose = frame.getViewerPose(referenceSpace);
 
-  // Fallback / Basic: Just capture the WebGL content (3D objects)
-  // Because 'preserveDrawingBuffer' is true, this works.
-  ctx.drawImage(renderer.domElement, 0, 0);
+      if (viewerPose) {
+        for (const view of viewerPose.views) {
+          if (view.camera) {
+            // Found a camera view!
+            if (!window.xrBinding) {
+              window.xrBinding = new XRWebGLBinding(session, gl);
+            }
 
-  // Convert to Blob
-  captureCanvas.toBlob((blob) => {
-    if (!blob) return;
+            const cameraTexture = window.xrBinding.getCameraImage(view.camera);
 
-    const file = new File([blob], `ar-snapshot-${Date.now()}.png`, { type: 'image/png' });
+            // Create a temp framebuffer to read the camera texture
+            const fb = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, cameraTexture, 0);
 
-    // Use Web Share API if available (best for Mobile)
-    if (navigator.share && navigator.canShare({ files: [file] })) {
-      navigator.share({
-        files: [file],
-        title: 'AR Snapshot',
-        text: 'Look at my AR creation!'
-      }).catch(e => log('Share cancelled: ' + e.message));
-    } else {
-      // Fallback: Download link
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ar-snapshot-${Date.now()}.png`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+            const pixels = new Uint8Array(view.camera.width * view.camera.height * 4);
+            gl.readPixels(0, 0, view.camera.width, view.camera.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.deleteFramebuffer(fb);
+
+            // Draw camera pixels to canvas (need to flip Y and potentially rotate if mobile)
+            const imageData = new ImageData(new Uint8ClampedArray(pixels), view.camera.width, view.camera.height);
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = view.camera.width;
+            tempCanvas.height = view.camera.height;
+            tempCanvas.getContext('2d').putImageData(imageData, 0, 0);
+
+            // Draw flipped/rotated camera feed onto main capture canvas
+            ctx.save();
+            ctx.scale(1, -1);
+            ctx.drawImage(tempCanvas, 0, -captureCanvas.height, captureCanvas.width, captureCanvas.height);
+            ctx.restore();
+
+            cameraFound = true;
+            break;
+          }
+        }
+      }
     }
-  }, 'image/png');
+
+    if (!cameraFound) {
+      log('Warning: Camera feed not captured. Snapshot will have default background.');
+    }
+
+    // 4. Draw the 3D Scene on top
+    ctx.drawImage(renderer.domElement, 0, 0);
+
+    // 5. Output Blob & Share
+    captureCanvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `ar-snapshot-${Date.now()}.png`, { type: 'image/png' });
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'AR Snapshot' }).catch(e => log('Share cancelled'));
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ar-snapshot-${Date.now()}.png`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    }, 'image/png');
+
+  } catch (err) {
+    error('processScreenshot failed: ' + err.message);
+  } finally {
+    // 6. Restore UI after a delay
+    setTimeout(() => {
+      uiElements.forEach(el => { if (el) el.style.opacity = '1'; });
+    }, 500);
+  }
 }
 
 init();
@@ -384,6 +415,13 @@ function render(timestamp, frame) {
   sceneManager.update(delta);
 
   if (frame) {
+    // --- SNAPSHOT HANDLER ---
+    if (pendingScreenshot) {
+      pendingScreenshot = false;
+      processScreenshot(frame, renderer);
+    }
+    // ------------------------
+
     const referenceSpace = renderer.xr.getReferenceSpace();
     const viewerPose = frame.getViewerPose(referenceSpace);
 
