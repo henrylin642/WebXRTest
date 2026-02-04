@@ -223,8 +223,13 @@ function updateGalleryUI() {
     const thumb = document.createElement('div');
     thumb.className = 'thumb-item';
     const img = document.createElement('img');
-    img.src = photoCache[i];
+    const url = photoCache[startIdx + (i - startIdx)]; // Capture current URL
+    img.src = url;
     thumb.appendChild(img);
+
+    // Click to preview
+    thumb.onclick = () => showPreview(url);
+
     gallery.appendChild(thumb);
   }
 
@@ -236,6 +241,33 @@ function updateGalleryUI() {
     gallery.appendChild(overflow);
   }
 }
+
+/**
+ * Shows the photo preview modal
+ */
+function showPreview(url) {
+  const modal = document.getElementById('photo-preview-modal');
+  const img = document.getElementById('preview-img');
+  if (modal && img) {
+    img.src = url;
+    modal.style.display = 'flex';
+  }
+}
+
+// Global UI Init - Preview Modal Close
+document.addEventListener('DOMContentLoaded', () => {
+  const closeBtn = document.getElementById('close-preview');
+  const modal = document.getElementById('photo-preview-modal');
+  if (closeBtn && modal) {
+    closeBtn.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    // Also close on background click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+  }
+});
 
 init();
 animate();
