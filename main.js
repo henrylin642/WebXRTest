@@ -31,7 +31,8 @@ let controller;
 let sceneManager;
 const clock = new THREE.Clock();
 let isImageFound = false; // State for Image Tracking UI
-let photoCache = []; // Store snapshot URLs for gallery
+let photoCache = []; // Store { url, blob } for gallery
+let currentPreviewData = null; // Track which photo is being viewed
 
 // --- CONFIGURATION ---
 // Default width is 1.1m (Compensated for optical depth error). User can override via Settings button.
@@ -182,7 +183,7 @@ async function processScreenshot(frame, renderer) {
 
       // Add to local cache for gallery strip
       const photoUrl = URL.createObjectURL(blob);
-      photoCache.push(photoUrl);
+      photoCache.push({ url: photoUrl, blob: blob });
       updateGalleryUI();
 
       // Note: We used to share/download here. 
@@ -223,12 +224,12 @@ function updateGalleryUI() {
     const thumb = document.createElement('div');
     thumb.className = 'thumb-item';
     const img = document.createElement('img');
-    const url = photoCache[startIdx + (i - startIdx)]; // Capture current URL
-    img.src = url;
+    const data = photoCache[i];
+    img.src = data.url;
     thumb.appendChild(img);
 
     // Click to preview
-    thumb.onclick = () => showPreview(url);
+    thumb.onclick = () => showPreview(data);
 
     gallery.appendChild(thumb);
   }
@@ -245,13 +246,49 @@ function updateGalleryUI() {
 /**
  * Shows the photo preview modal
  */
-function showPreview(url) {
+function showPreview(data) {
   const modal = document.getElementById('photo-preview-modal');
   const img = document.getElementById('preview-img');
   if (modal && img) {
-    img.src = url;
+    currentPreviewData = data;
+    img.src = data.url;
     modal.style.display = 'flex';
   }
+}
+
+// Global UI Init - Preview Modal Actions
+const saveBtn = document.getElementById('save-photo');
+const shareBtn = document.getElementById('share-photo');
+
+if (saveBtn) {
+  saveBtn.onclick = (e) => {
+    e.stopPropagation();
+    if (!currentPreviewData) return;
+    const a = document.createElement('a');
+    a.href = currentPreviewData.url;
+    a.download = `ar-snapshot-${Date.now()}.png`;
+    a.click();
+  };
+}
+
+if (shareBtn) {
+  shareBtn.onclick = async (e) => {
+    e.stopPropagation();
+    if (!currentPreviewData) return;
+    const file = new File([currentPreviewData.blob], `snapshot.png`, { type: 'image/png' });
+    if (navigator.share && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'AR Snapshot'
+        });
+      } catch (err) {
+        log('Share failed or cancelled');
+      }
+    } else {
+      alert('Your browser does not support sharing files.');
+    }
+  };
 }
 
 // Global UI Init - Preview Modal Close
