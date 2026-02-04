@@ -33,8 +33,8 @@ const clock = new THREE.Clock();
 let isImageFound = false; // State for Image Tracking UI
 
 // --- CONFIGURATION ---
-// Default width is 0.6m (60cm). User can override via Settings button.
-const DEFAULT_WIDTH = 0.6;
+// Default width is 1.1m (Compensated for optical depth error). User can override via Settings button.
+const DEFAULT_WIDTH = 1.1;
 window.currentWidth = parseFloat(localStorage.getItem('img_width_meters')) || DEFAULT_WIDTH;
 
 // UI: Settings Button Handler
@@ -211,6 +211,17 @@ async function onARButtonClick() {
     const axesHelper = makeThickAxes(0.3);
     sceneManager.worldRoot.add(axesHelper); // Add to worldRoot so it rotates with it
 
+    // DEBUG: Gravity Arrow (Yellow)
+    // Visualizes the World Up vector (0, 1, 0) relative to the content
+    // We attach this to the SCENE (World Space) so it stays true to gravity,
+    // but we will move it to follow the marker position in the render loop.
+    const gravityArrowDir = new THREE.Vector3(0, 1, 0);
+    const gravityArrowOrigin = new THREE.Vector3(0, 0, 0); // Will update
+    const gravityArrowLength = 0.5;
+    const gravityArrowColor = 0xffff00; // Yellow
+    window.gravityArrow = new THREE.ArrowHelper(gravityArrowDir, gravityArrowOrigin, gravityArrowLength, gravityArrowColor);
+    scene.add(window.gravityArrow);
+
     // Turn off auto-update matrix until we find the image?
     // trackingRoot.visible = false; // Optional: hide until found
 
@@ -300,6 +311,13 @@ function render(timestamp, frame) {
         if (result.trackingState === 'tracked') {
           const trackingRoot = scene.getObjectByName('trackingRoot');
           if (trackingRoot) {
+            // Update Gravity Arrow to follow the marker
+            if (window.gravityArrow) {
+              // Convert trackingRoot global position to arrow position
+              // Actually trackingRoot is child of scene, so just copy position
+              window.gravityArrow.position.copy(trackingRoot.position);
+              window.gravityArrow.visible = trackingRoot.visible;
+            }
             trackingRoot.visible = true;
 
             const referenceSpace = renderer.xr.getReferenceSpace();
