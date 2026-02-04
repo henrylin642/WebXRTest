@@ -61,6 +61,17 @@ if (settingsBtn) {
   });
 }
 
+// UI: Exit AR Button Handler
+const exitArBtn = document.getElementById('exit-ar-btn');
+if (exitArBtn) {
+  exitArBtn.addEventListener('click', () => {
+    if (renderer && renderer.xr.isPresenting) {
+      log('User requested exit. Ending XR session...');
+      renderer.xr.getSession().end();
+    }
+  });
+}
+
 // Snapshot State
 let pendingScreenshot = false;
 const snapshotBtn = document.getElementById('snapshot-btn');
@@ -510,6 +521,8 @@ async function onARButtonClick() {
       }
       sceneManager.objects = [];
       scene.remove(trackingRoot); // Clean up
+
+      setARUIVisible(false);
     });
 
     await renderer.xr.setSession(session);
@@ -517,11 +530,40 @@ async function onARButtonClick() {
 
     // Force UI to show immediately
     log('Starting AR UI...');
+    setARUIVisible(true);
     updateStepUI(1);
 
   } catch (e) {
     error('Error requesting session: ' + e.message);
     alert('AR Error: ' + e.message);
+  }
+}
+
+function setARUIVisible(visible) {
+  const display = visible ? 'block' : 'none';
+  const flexDisplay = visible ? 'flex' : 'none';
+
+  const elements = {
+    'settings-btn': flexDisplay,
+    'exit-ar-btn': flexDisplay,
+    'slam-status': display,
+    'snapshot-btn': display,
+    'pose-info': display
+  };
+
+  for (const [id, style] of Object.entries(elements)) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = style;
+  }
+
+  // Special cases
+  if (!visible) {
+    const gallery = document.getElementById('gallery-strip');
+    if (gallery) gallery.style.display = 'none';
+    const instructions = document.getElementById('step-instructions-container');
+    if (instructions) instructions.style.display = 'none';
+    const preview = document.getElementById('photo-preview-modal');
+    if (preview) preview.style.display = 'none';
   }
 }
 
