@@ -166,6 +166,11 @@ async function onARButtonClick() {
     // This rotation aligns standard 3D Y-up with the Poster's Vertical Up.
     sceneManager.worldRoot.rotation.x = -Math.PI / 2;
 
+    // VISUALIZATION: Add Origin Axes (RGB = XYZ)
+    // Size 0.3m
+    const axesHelper = new THREE.AxesHelper(0.3);
+    sceneManager.worldRoot.add(axesHelper); // Add to worldRoot so it rotates with it
+
     // Turn off auto-update matrix until we find the image?
     // trackingRoot.visible = false; // Optional: hide until found
 
@@ -293,6 +298,37 @@ function render(timestamp, frame) {
   }
 
   renderer.render(scene, camera);
+
+  // --- 6DoF DEBUG INFO ---
+  // Show Camera Position relative to Image (Tracking Root)
+  const poseInfo = document.getElementById('pose-info');
+  if (poseInfo) {
+    const trackingRoot = scene.getObjectByName('trackingRoot');
+    if (trackingRoot && trackingRoot.visible) {
+      // Clone camera position to avoid modifying the actual camera
+      // But wait, TrackingRoot is moving in World Space to match Image.
+      // Camera is also moving in World Space (WebXR).
+      // We want: Camera Position relative to TrackingRoot.
+
+      // Matrix Math:
+      // LocalPos = ParentInverse * WorldPos
+
+      // More simply using Three.js:
+      const relPos = new THREE.Vector3();
+      relPos.copy(camera.position); // World Position
+      trackingRoot.worldToLocal(relPos); // Convert to Local Space of Image
+
+      // Round to 2 decimals
+      const x = relPos.x.toFixed(2);
+      const y = relPos.y.toFixed(2);
+      const z = relPos.z.toFixed(2);
+      const dist = relPos.length().toFixed(2);
+
+      poseInfo.innerText = `REL POS:\nX: ${x}\nY: ${y}\nZ: ${z}\nDIST: ${dist}m`;
+    } else {
+      poseInfo.innerText = "Scanning...";
+    }
+  }
 }
 
 function updateStepUI(step) {
