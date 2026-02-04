@@ -185,17 +185,10 @@ async function processScreenshot(frame, renderer) {
       photoCache.push(photoUrl);
       updateGalleryUI();
 
-      const file = new File([blob], `ar-snapshot-${Date.now()}.png`, { type: 'image/png' });
-      if (navigator.share && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: 'AR Snapshot' }).catch(e => log('Share cancelled'));
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ar-snapshot-${Date.now()}.png`;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
+      // Note: We used to share/download here. 
+      // Removed to prevent AR session interruption as requested.
+      // Photos are now silently stored in photoCache and displayed in gallery-strip.
+      log('Snapshot saved to gallery cache.');
     }, 'image/png');
 
   } catch (err) {
