@@ -125,6 +125,26 @@ async function onARButtonClick() {
     // Load scene
     sceneManager.loadSceneConfig('scene.json');
 
+    // --- FEATURE CHECK ---
+    // Verify if Image Tracking is actually running
+    // Note: enabledFeatures is an array of strings
+    let isTrackingEnabled = false;
+    // Check various properties just in case
+    if (session.enabledFeatures) {
+      // Convert to array if it is not (some browsers use DOMStringList)
+      const features = Array.from(session.enabledFeatures);
+      log(`Enabled Features: ${features.join(', ')}`);
+      if (features.includes('image-tracking')) isTrackingEnabled = true;
+    }
+
+    if (!isTrackingEnabled) {
+      alert('CRITICAL WARNING: "image-tracking" feature was requested but NOT enabled by the browser. \n\nCheck:\n1. Update Google Play Services for AR\n2. Chrome Flags > WebXR Image Tracking');
+      log('CRITICAL: Image Tracking feature MISSING!');
+    } else {
+      log('SUCCESS: Image Tracking is ACTIVE.');
+    }
+    // ---------------------
+
     // Create a root container for Image Tracking adjustments
     // We will move THIS container, not the camera
     const trackingRoot = new THREE.Group();
