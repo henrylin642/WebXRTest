@@ -155,6 +155,10 @@ async function onARButtonClick() {
     await renderer.xr.setSession(session);
     document.getElementById('ar-button').style.display = 'none';
 
+    // Force UI to show immediately
+    log('Starting AR UI...');
+    updateStepUI(1);
+
   } catch (e) {
     error('Error requesting session: ' + e.message);
     alert('AR Error: ' + e.message);
