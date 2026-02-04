@@ -168,10 +168,15 @@ async function onARButtonClick() {
 
     // OFFSET: Align Origin with Middle LED
     // The Image Origin is the center of the cropped image.
-    // From the photo, the Middle LED is significantly ABOVE the visual center.
-    // Estimated offset: +0.25m (25cm) Y-axis (in 3D space relative to image center)
-    sceneManager.worldRoot.position.y = 0.25;
-    // This moves the virtual 0,0,0 UP to align with the LED.
+    // In standard WebXR Image Space (before our rotation):
+    // X+ is Right
+    // Y+ is Up (Normal to surface)
+    // Z+ is Down (Bottom of image)
+    // So "Top of Image" is -Z direction.
+    // The LED is at the top, approx 25cm from center.
+    // We move the content origin to align with that.
+    sceneManager.worldRoot.position.z = -0.25;
+    // sceneManager.worldRoot.position.y = 0.0; // Reset Y if previously set
 
     // VISUALIZATION: Add Origin Axes (RGB = XYZ)
     // Size 0.3m
