@@ -208,6 +208,39 @@ body {
 
 /* Red */
 
+/* --- Snapshot Button --- */
+#snapshot-btn {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: 4px solid white;
+  background: rgba(255, 255, 255, 0.2);
+  z-index: 1002;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+#snapshot-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 54px;
+  height: 54px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.1s;
+}
+
+#snapshot-btn:active::after {
+  transform: translate(-50%, -50%) scale(0.9);
+}
+
 /* --- AR Step Instructions --- */
 #step-instructions-container {
   position: absolute;

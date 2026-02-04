@@ -59,6 +59,35 @@ if (settingsBtn) {
   });
 }
 
+// UI: Snapshot Button Handler
+// Hides all overlay UI for 3 seconds to allow user to take a system screenshot
+const snapshotBtn = document.getElementById('snapshot-btn');
+if (snapshotBtn) {
+  snapshotBtn.addEventListener('click', () => {
+    // Collect UI elements to hide
+    const uiElements = [
+      document.getElementById('settings-btn'),
+      document.getElementById('slam-status'),
+      document.getElementById('pose-info'),
+      document.getElementById('snapshot-btn'), // Hide self too
+      document.getElementById('step-instructions-container'),
+      document.getElementById('debug-console')
+    ];
+
+    // Hide them
+    uiElements.forEach(el => {
+      if (el) el.style.opacity = '0';
+    });
+
+    // Restore after 3 seconds
+    setTimeout(() => {
+      uiElements.forEach(el => {
+        if (el) el.style.opacity = '1';
+      });
+    }, 3000);
+  });
+}
+
 init();
 animate();
 
