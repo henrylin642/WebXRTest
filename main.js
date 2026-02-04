@@ -180,6 +180,21 @@ function render(timestamp, frame) {
   if (frame) {
     const results = frame.getImageTrackingResults();
 
+    // --- DEBUG SECTION ---
+    // Log tracking status every 60 frames (approx 1 sec) or on state change
+    if (!window.frameCounter) window.frameCounter = 0;
+    window.frameCounter++;
+
+    if (window.frameCounter % 60 === 0) {
+      if (results.length === 0) {
+        log(`Scanning... No image detected yet.`);
+      } else {
+        const r = results[0];
+        log(`Image found! State: ${r.trackingState} (Space: ${r.imageSpace ? 'OK' : 'Null'})`);
+      }
+    }
+    // ---------------------
+
     // UI State Management - Initialize Step 1 if not set
     if (!isImageFound && document.getElementById('step-title')?.innerText !== '步驟 1') {
       updateStepUI(1);
@@ -215,9 +230,6 @@ function render(timestamp, frame) {
         }
       }
     } else if (isImageFound) {
-      // Continue updating position if needed, or lock it?
-      // Usually better to keep updating to correct drift, unless user walks far away.
-      // For this demo, we keep updating if visible.
       const results = frame.getImageTrackingResults();
       if (results && results.length > 0) {
         const result = results[0];
