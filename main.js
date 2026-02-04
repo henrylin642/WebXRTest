@@ -157,10 +157,23 @@ async function processScreenshot(frame, renderer) {
     }
 
     // 4. Draw the 3D Scene on top (Direct pixels read from RenderTarget)
-    const rt = new THREE.WebGLRenderTarget(captureCanvas.width, captureCanvas.height);
+    // IMPORTANT: Match the renderer's color space and tone mapping for consistent lighting
+    const rt = new THREE.WebGLRenderTarget(captureCanvas.width, captureCanvas.height, {
+      format: THREE.RGBAFormat,
+      type: THREE.UnsignedByteType,
+      colorSpace: renderer.outputColorSpace || THREE.SRGBColorSpace
+    });
+
+    // Temporarily disable XR during this manual render call to ensure 
+    // standard camera/lighting calculations apply to the RenderTarget
+    const originalXrEnabled = renderer.xr.enabled;
+    renderer.xr.enabled = false;
+
     renderer.setRenderTarget(rt);
     renderer.render(scene, camera);
     renderer.setRenderTarget(null);
+
+    renderer.xr.enabled = originalXrEnabled;
 
     const pixels = new Uint8Array(captureCanvas.width * captureCanvas.height * 4);
     renderer.readRenderTargetPixels(rt, 0, 0, captureCanvas.width, captureCanvas.height, pixels);
