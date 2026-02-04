@@ -105,7 +105,7 @@ async function onARButtonClick() {
 
   try {
     log('Load Image Tracking...');
-    const imgBitmap = await createImageBitmap(await (await fetch('/ref.jpg')).blob());
+    const imgBitmap = await createImageBitmap(await (await fetch('/ref.png')).blob());
 
     log('Requesting Session...');
     const session = await navigator.xr.requestSession('immersive-ar', {
