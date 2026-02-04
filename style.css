@@ -244,30 +244,33 @@ body {
 /* --- Gallery Strip --- */
 #gallery-strip {
   position: absolute;
-  bottom: 30px;
-  left: 20px;
+  bottom: 110px;
+  /* Above the shutter button */
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   z-index: 1002;
-  height: 70px;
+  height: 50px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 5px 10px;
+  border-radius: 12px;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: opacity 0.3s;
+  pointer-events: auto;
 }
 
 .thumb-item {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
   overflow: hidden;
-  border: 2px solid white;
-  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.8);
   background: #000;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
   cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.thumb-item:active {
-  transform: scale(0.95);
+  flex-shrink: 0;
 }
 
 .thumb-item img {
@@ -276,34 +279,13 @@ body {
   object-fit: cover;
 }
 
-.thumb-status {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 20px;
-  color: white;
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
-}
-
-.thumb-uploading::after {
-  content: '⏳';
-  /* Spinner simulation */
-  animation: spin 1s infinite linear;
-}
-
-.thumb-done::after {
-  content: '✅';
-}
-
 .gallery-overflow {
   color: white;
   font-weight: bold;
-  font-size: 16px;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 5px 10px;
-  border-radius: 20px;
-  border: 1px solid white;
+  font-size: 14px;
+  padding: 0 5px;
+  min-width: 30px;
+  text-align: center;
 }
 
 /* --- Preview Modal --- */

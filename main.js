@@ -31,6 +31,7 @@ let controller;
 let sceneManager;
 const clock = new THREE.Clock();
 let isImageFound = false; // State for Image Tracking UI
+let photoCache = []; // Store snapshot URLs for gallery
 
 // --- CONFIGURATION ---
 // Default width is 1.1m (Compensated for optical depth error). User can override via Settings button.
@@ -87,6 +88,7 @@ async function processScreenshot(frame, renderer) {
     document.getElementById('slam-status'),
     document.getElementById('pose-info'),
     document.getElementById('snapshot-btn'),
+    document.getElementById('gallery-strip'),
     document.getElementById('step-instructions-container'),
     document.getElementById('debug-console')
   ];
@@ -98,6 +100,7 @@ async function processScreenshot(frame, renderer) {
   const captureCanvas = document.createElement('canvas');
   captureCanvas.width = renderer.domElement.width;
   captureCanvas.height = renderer.domElement.height;
+
   const ctx = captureCanvas.getContext('2d');
 
   try {
@@ -176,6 +179,12 @@ async function processScreenshot(frame, renderer) {
     // 5. Output Blob & Share
     captureCanvas.toBlob((blob) => {
       if (!blob) return;
+
+      // Add to local cache for gallery strip
+      const photoUrl = URL.createObjectURL(blob);
+      photoCache.push(photoUrl);
+      updateGalleryUI();
+
       const file = new File([blob], `ar-snapshot-${Date.now()}.png`, { type: 'image/png' });
       if (navigator.share && navigator.canShare({ files: [file] })) {
         navigator.share({ files: [file], title: 'AR Snapshot' }).catch(e => log('Share cancelled'));
@@ -196,6 +205,42 @@ async function processScreenshot(frame, renderer) {
     setTimeout(() => {
       uiElements.forEach(el => { if (el) el.style.opacity = '1'; });
     }, 500);
+  }
+}
+
+/**
+ * Updates the gallery strip UI with stored photos
+ */
+function updateGalleryUI() {
+  const gallery = document.getElementById('gallery-strip');
+  if (!gallery) return;
+
+  if (photoCache.length > 0) {
+    gallery.style.display = 'flex';
+  }
+
+  // Clear current gallery
+  gallery.innerHTML = '';
+
+  // Show top 3 most recent photos
+  const showCount = Math.min(photoCache.length, 3);
+  const startIdx = Math.max(0, photoCache.length - 3);
+
+  for (let i = startIdx; i < photoCache.length; i++) {
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb-item';
+    const img = document.createElement('img');
+    img.src = photoCache[i];
+    thumb.appendChild(img);
+    gallery.appendChild(thumb);
+  }
+
+  // Add overflow indicator if > 3
+  if (photoCache.length > 3) {
+    const overflow = document.createElement('div');
+    overflow.className = 'gallery-overflow';
+    overflow.innerText = `+${photoCache.length - 3}`;
+    gallery.appendChild(overflow);
   }
 }
 
