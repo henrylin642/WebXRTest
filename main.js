@@ -59,101 +59,37 @@ if (settingsBtn) {
   });
 }
 
-// UI: Snapshot & Gallery Logic
-const galleryPhotos = []; // { id, url, status: 'uploading'|'done' }
+// UI: Snapshot Button Handler
+// Hides all overlay UI for 3 seconds to allow user to take a system screenshot
 const snapshotBtn = document.getElementById('snapshot-btn');
-const galleryStrip = document.getElementById('gallery-strip');
-const previewModal = document.getElementById('photo-preview-modal');
-const previewImg = document.getElementById('preview-img');
-const closePreview = document.getElementById('close-preview');
-
 if (snapshotBtn) {
   snapshotBtn.addEventListener('click', () => {
     // Flash effect
     snapshotBtn.style.background = 'white';
     setTimeout(() => snapshotBtn.style.background = 'rgba(255,255,255,0.2)', 100);
 
-    // CAPTURE CANVAS
-    try {
-      // Check Camera Access Status (Experimental)
-      if (renderer.xr) {
-        const session = renderer.xr.getSession();
-        if (session && session.enabledFeatures && session.enabledFeatures.has('camera-access')) {
-          log('Experiment: Camera Access is ENABLED! (Raw texture available)');
-        }
-      }
+    // Collect UI elements to hide
+    const uiElements = [
+      document.getElementById('settings-btn'),
+      document.getElementById('slam-status'),
+      document.getElementById('pose-info'),
+      document.getElementById('snapshot-btn'),
+      document.getElementById('step-instructions-container'),
+      document.getElementById('debug-console'),
+      document.getElementById('gallery-strip')
+    ];
 
-      // Must have preserveDrawingBuffer: true
-      const dataURL = renderer.domElement.toDataURL('image/png');
-
-      // Add to Gallery
-      const photoId = Date.now();
-      const photoObj = { id: photoId, url: dataURL, status: 'uploading' };
-      galleryPhotos.push(photoObj);
-
-      updateGalleryUI();
-
-      // Simulate Cloud Upload
-      setTimeout(() => {
-        photoObj.status = 'done';
-        updateGalleryUI();
-      }, 2000); // 2 seconds upload time
-
-    } catch (e) {
-      log('Snapshot failed: ' + e);
-      alert('Snapshot failed. See debug log.');
-    }
-  });
-}
-
-function updateGalleryUI() {
-  if (!galleryStrip) return;
-  galleryStrip.innerHTML = '';
-
-  const total = galleryPhotos.length;
-  const visiblePhotos = galleryPhotos.slice(-3);
-  const hiddenCount = Math.max(0, total - 3);
-
-  if (hiddenCount > 0) {
-    const badge = document.createElement('div');
-    badge.className = 'gallery-overflow';
-    badge.innerText = `+${hiddenCount}`;
-    galleryStrip.appendChild(badge);
-  }
-
-  visiblePhotos.forEach(photo => {
-    const thumb = document.createElement('div');
-    thumb.className = 'thumb-item';
-
-    const img = document.createElement('img');
-    img.src = photo.url;
-
-    const status = document.createElement('div');
-    status.className = 'thumb-status ' + (photo.status === 'uploading' ? 'thumb-uploading' : 'thumb-done');
-
-    thumb.appendChild(img);
-    thumb.appendChild(status);
-
-    thumb.addEventListener('click', () => {
-      if (previewModal && previewImg) {
-        previewImg.src = photo.url;
-        previewModal.style.display = 'flex';
-      }
+    // Hide them
+    uiElements.forEach(el => {
+      if (el) el.style.opacity = '0';
     });
 
-    galleryStrip.appendChild(thumb);
-  });
-}
-
-// Modal Close logic
-if (closePreview) {
-  closePreview.addEventListener('click', () => {
-    previewModal.style.display = 'none';
-  });
-}
-if (previewModal) {
-  previewModal.addEventListener('click', (e) => {
-    if (e.target === previewModal) previewModal.style.display = 'none';
+    // Restore after 3 seconds
+    setTimeout(() => {
+      uiElements.forEach(el => {
+        if (el) el.style.opacity = '1';
+      });
+    }, 3000);
   });
 }
 
