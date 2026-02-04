@@ -113,7 +113,7 @@ async function onARButtonClick() {
       trackedImages: [
         {
           image: imgBitmap,
-          widthInMeters: 0.6 // 假設海報寬度為 60公分，請根據實際尺寸調整
+          widthInMeters: 0.5 // Updated to 50cm based on user input
         }
       ],
       optionalFeatures: ['dom-overlay'],
