@@ -275,11 +275,52 @@ function animate() {
 // The 'render' function receives (timestamp, frame).
 
 // Let's rewrite the render function to handle image tracking results
+// SLAM Monitor Variables
+let lastFrameTime = 0;
+let slamStatusDiv = document.getElementById('slam-status');
+
 function render(timestamp, frame) {
   const delta = clock.getDelta();
   sceneManager.update(delta);
 
   if (frame) {
+    const referenceSpace = renderer.xr.getReferenceSpace();
+    const viewerPose = frame.getViewerPose(referenceSpace);
+
+    // --- SLAM Quality Monitor ---
+    if (slamStatusDiv) {
+      // 1. Calculate FPS
+      const timeDiff = timestamp - lastFrameTime;
+      lastFrameTime = timestamp;
+      const fps = 1000 / timeDiff;
+
+      // 2. Check Tracking State
+      let isEmulated = false;
+      if (viewerPose && viewerPose.emulatedPosition) {
+        isEmulated = true;
+      }
+
+      // 3. Determine Status
+      let statusClass = 'slam-good';
+      let statusText = `SLAM: Stable (${Math.round(fps)} FPS)`;
+
+      if (isEmulated) {
+        statusClass = 'slam-bad';
+        statusText = `SLAM: LOST (Drifting!)`;
+      } else if (fps < 20) {
+        statusClass = 'slam-warn';
+        statusText = `SLAM: Unstable (Low FPS: ${Math.round(fps)})`;
+      } else if (fps < 30) {
+        statusClass = 'slam-warn'; // Mild warning
+      }
+
+      // 4. Update UI (Optimize: don't touch DOM every frame if not needed? 
+      // For simplicity, we update class and text. Browser handles diffing well enough for text.)
+      slamStatusDiv.className = statusClass;
+      slamStatusDiv.innerText = statusText;
+    }
+    // ----------------------------
+
     const results = frame.getImageTrackingResults();
 
     // --- DEBUG SECTION ---
