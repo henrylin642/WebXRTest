@@ -325,24 +325,51 @@ function render(timestamp, frame) {
             if (pose) {
               trackingRoot.position.copy(pose.transform.position);
 
-              // GRAVITY ALIGNMENT (Levelling) - DISABLED
-              // Caused visibility issues (likely rotation mismatch). Reverting to following image rotation.
-              /*
-              const rawQuat = pose.transform.orientation;
-              const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-              euler.setFromQuaternion(rawQuat);
-              const leveledQuat = new THREE.Quaternion();
-              leveledQuat.setFromEuler(new THREE.Euler(0, euler.y, 0));
-              trackingRoot.quaternion.copy(leveledQuat);
-              */
+              // GRAVITY ALIGNMENT (Vector-based "Z-Down" Logic)
+              // Goal: Force the Image's Z-axis (Bottom) to point strictly DOWN (World 0,-1,0),
+              // while preserving the Yaw (Facing direction) derived from the Image's X-axis.
 
-              // Restore original behavior: Follow image orientation exactly
-              trackingRoot.quaternion.copy(pose.transform.orientation);
+              const rawQuat = pose.transform.orientation;
+
+              // 1. Extract the Right Vector (Local X) from the detected image pose
+              const rightVec = new THREE.Vector3(1, 0, 0).applyQuaternion(rawQuat);
+
+              // 2. Project it onto the horizontal plane (World XZ) and normalize
+              // This retains the "facing" direction but removes any roll/tilt
+              rightVec.y = 0;
+              rightVec.normalize();
+
+              // 3. Define the desired Down Vector (Local Z should point to World Down)
+              // WebXR Image Space: Z is Bottom of image. We want this to be vertical.
+              const downVec = new THREE.Vector3(0, -1, 0); // World Down
+
+              // 4. Calculate the adjusted Normal Vector (Local Y)
+              // Y = Cross(Z, X) -> But wait, Right-Hand Rule:
+              // X (Right) x Y (Up/Normal) = Z (Forward/Down?)
+              // In standard bases: X cross Y = Z.
+              // So X cross Z = -Y.
+              // Z cross X = Y.
+              // Let's verify Image Space: X=Right, Y=Normal, Z=Bottom.
+              // X(1,0,0) x Y(0,1,0) = Z(0,0,1). Correct.
+              // So Logic: Desired Y (Normal) = Desired Z (Down) cross Desired X (Right)?
+              // (0,-1,0) x (1,0,0) = (0, 0, 1) -> World Z (Forward).
+              // Looks correct.
+              const normalVec = new THREE.Vector3();
+              normalVec.crossVectors(downVec, rightVec); // Z x X = Y
+
+              // 5. Construct the Rotation Matrix basis
+              const alignMat = new THREE.Matrix4();
+              alignMat.makeBasis(rightVec, normalVec, downVec);
+
+              // 6. Apply to trackingRoot
+              const alignQuat = new THREE.Quaternion();
+              alignQuat.setFromRotationMatrix(alignMat);
+              trackingRoot.quaternion.copy(alignQuat);
 
               // LOCK POSITION
               // Only lock if trackingState is 'tracked' (High quality)
               window.hasLockedPosition = true;
-              log('Position LOCKED. Ignoring future image updates.');
+              log('Position LOCKED (Gravity Aligned Z-Down).');
             }
 
             // State Transition: 1 -> 2
