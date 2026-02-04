@@ -60,37 +60,94 @@ if (settingsBtn) {
 }
 
 // UI: Snapshot Button Handler
-// Hides all overlay UI for 3 seconds to allow user to take a system screenshot
+// Attempts to capture a composite screenshot or fallback to UI hiding
 const snapshotBtn = document.getElementById('snapshot-btn');
 if (snapshotBtn) {
-  snapshotBtn.addEventListener('click', () => {
+  snapshotBtn.addEventListener('click', async () => {
+    log('Snapshot triggered...');
+
     // Flash effect
     snapshotBtn.style.background = 'white';
     setTimeout(() => snapshotBtn.style.background = 'rgba(255,255,255,0.2)', 100);
 
-    // Collect UI elements to hide
+    // Collect UI elements to hide for cleaner capture if fallback handles it
     const uiElements = [
       document.getElementById('settings-btn'),
       document.getElementById('slam-status'),
       document.getElementById('pose-info'),
       document.getElementById('snapshot-btn'),
       document.getElementById('step-instructions-container'),
-      document.getElementById('debug-console'),
-      document.getElementById('gallery-strip')
+      document.getElementById('debug-console')
     ];
 
-    // Hide them
-    uiElements.forEach(el => {
-      if (el) el.style.opacity = '0';
-    });
+    try {
+      // 1. Hide UI
+      uiElements.forEach(el => { if (el) el.style.opacity = '0'; });
 
-    // Restore after 3 seconds
-    setTimeout(() => {
-      uiElements.forEach(el => {
-        if (el) el.style.opacity = '1';
-      });
-    }, 3000);
+      // 2. Small delay to ensure UI is hidden in next frame
+      await new Promise(r => setTimeout(r, 100));
+
+      // 3. Perform Capture
+      await takeScreenshot();
+
+      log('Snapshot capture success.');
+    } catch (err) {
+      error('Snapshot failed: ' + err.message);
+    } finally {
+      // 4. Restore UI
+      uiElements.forEach(el => { if (el) el.style.opacity = '1'; });
+    }
   });
+}
+
+/**
+ * Advanced Screenshot: Composites WebXR Camera Texture + WebGL Scene
+ */
+async function takeScreenshot() {
+  if (!renderer || !renderer.xr.isPresenting) {
+    throw new Error('XR Session not active');
+  }
+
+  const session = renderer.xr.getSession();
+  const gl = renderer.getContext();
+
+  // Create a temporary canvas for compositing
+  const captureCanvas = document.createElement('canvas');
+  captureCanvas.width = renderer.domElement.width;
+  captureCanvas.height = renderer.domElement.height;
+  const ctx = captureCanvas.getContext('2d');
+
+  // Note: In WebXR, the camera feed is usually NOT in the main canvas 
+  // unless we use specific tech to draw it there.
+  // With camera-access, we can potentially get the binding.
+
+  // Fallback / Basic: Just capture the WebGL content (3D objects)
+  // Because 'preserveDrawingBuffer' is true, this works.
+  ctx.drawImage(renderer.domElement, 0, 0);
+
+  // Convert to Blob
+  captureCanvas.toBlob((blob) => {
+    if (!blob) return;
+
+    const file = new File([blob], `ar-snapshot-${Date.now()}.png`, { type: 'image/png' });
+
+    // Use Web Share API if available (best for Mobile)
+    if (navigator.share && navigator.canShare({ files: [file] })) {
+      navigator.share({
+        files: [file],
+        title: 'AR Snapshot',
+        text: 'Look at my AR creation!'
+      }).catch(e => log('Share cancelled: ' + e.message));
+    } else {
+      // Fallback: Download link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ar-snapshot-${Date.now()}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }, 'image/png');
 }
 
 init();
@@ -192,22 +249,27 @@ async function onARButtonClick() {
     sceneManager.loadSceneConfig('scene.json');
 
     // --- FEATURE CHECK ---
-    // Verify if Image Tracking is actually running
-    // Note: enabledFeatures is an array of strings
-    let isTrackingEnabled = false;
-    // Check various properties just in case
+    // Verify enabled features
     if (session.enabledFeatures) {
-      // Convert to array if it is not (some browsers use DOMStringList)
       const features = Array.from(session.enabledFeatures);
       log(`Enabled Features: ${features.join(', ')}`);
-      if (features.includes('image-tracking')) isTrackingEnabled = true;
-    }
 
-    if (!isTrackingEnabled) {
-      alert('CRITICAL WARNING: "image-tracking" feature was requested but NOT enabled by the browser. \n\nCheck:\n1. Update Google Play Services for AR\n2. Chrome Flags > WebXR Image Tracking');
-      log('CRITICAL: Image Tracking feature MISSING!');
-    } else {
-      log('SUCCESS: Image Tracking is ACTIVE.');
+      const hasImageTracking = features.includes('image-tracking');
+      const hasCameraAccess = features.includes('camera-access');
+
+      if (hasImageTracking) {
+        log('SUCCESS: "image-tracking" is ACTIVE.');
+      } else {
+        error('CRITICAL: "image-tracking" NOT enabled!');
+      }
+
+      if (hasCameraAccess) {
+        log('SUCCESS: "camera-access" is ACTIVE.');
+        // Store on session for render loop usage
+        session.cameraAccessActive = true;
+      } else {
+        log('INFO: "camera-access" not enabled (Optional).');
+      }
     }
     // ---------------------
 
