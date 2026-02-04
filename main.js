@@ -185,7 +185,26 @@ async function onARButtonClick() {
   }
 }
 
-// ... existing resize code ...
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function onSelect() {
+  // Interaction Logic
+  const target = sceneManager.raycast(controller);
+  if (target) {
+    log(`Clicked on: ${sceneManager.getObjectName(target)}`);
+
+    // Trigger Touch Event (ID: 1)
+    sceneManager.triggerEvent(target.userData.id, 1);
+  }
+}
+
+function animate() {
+  renderer.setAnimationLoop(render);
+}
 
 // Render loop needs access to 'frame' to get image results
 // We need to modify animate/render to handle this.
