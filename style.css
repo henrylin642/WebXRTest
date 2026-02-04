@@ -360,8 +360,14 @@ body {
   padding: 20px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
+  grid-auto-rows: min-content;
+  /* Ensure rows don't stretch */
+  align-content: start;
+  /* Start from the top */
+  gap: 12px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Smooth scroll on iOS */
 }
 
 #full-gallery-grid .grid-item {
