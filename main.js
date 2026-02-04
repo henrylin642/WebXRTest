@@ -106,7 +106,7 @@ async function onARButtonClick() {
 
   try {
     log('Load Image Tracking...');
-    const imgBitmap = await createImageBitmap(await (await fetch('/ref.jpg')).blob());
+    const imgBitmap = await createImageBitmap(await (await fetch('/ref_with_led.png')).blob());
 
     log('Requesting Session...');
     const session = await navigator.xr.requestSession('immersive-ar', {
@@ -114,7 +114,7 @@ async function onARButtonClick() {
       trackedImages: [
         {
           image: imgBitmap,
-          widthInMeters: 0.5 // Updated to 50cm based on user input
+          widthInMeters: 0.55 // Updated to 55cm (Poster 50cm + margins)
         }
       ],
       optionalFeatures: ['dom-overlay'],
@@ -165,6 +165,13 @@ async function onARButtonClick() {
     // We want Y axis to be Up (along the poster).
     // This rotation aligns standard 3D Y-up with the Poster's Vertical Up.
     sceneManager.worldRoot.rotation.x = -Math.PI / 2;
+
+    // OFFSET: Align Origin with Middle LED
+    // The Image Origin is the center of the cropped image.
+    // From the photo, the Middle LED is significantly ABOVE the visual center.
+    // Estimated offset: +0.25m (25cm) Y-axis (in 3D space relative to image center)
+    sceneManager.worldRoot.position.y = 0.25;
+    // This moves the virtual 0,0,0 UP to align with the LED.
 
     // VISUALIZATION: Add Origin Axes (RGB = XYZ)
     // Size 0.3m
