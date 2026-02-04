@@ -168,7 +168,8 @@ async function onARButtonClick() {
 
     // VISUALIZATION: Add Origin Axes (RGB = XYZ)
     // Size 0.3m
-    const axesHelper = new THREE.AxesHelper(0.3);
+    // const axesHelper = new THREE.AxesHelper(0.3);
+    const axesHelper = makeThickAxes(0.3);
     sceneManager.worldRoot.add(axesHelper); // Add to worldRoot so it rotates with it
 
     // Turn off auto-update matrix until we find the image?
@@ -246,7 +247,14 @@ function render(timestamp, frame) {
     }
     // ---------------------
 
-    // UI State Management - Initialize Step 1 if not set
+    // If already locked, do not search for image results
+    if (window.hasLockedPosition) {
+      return;
+      // Note: We deliberately stop processing image tracking results.
+      // The object remains at its last known position in World Space.
+      // WebXR World Space coordinate system continues to be updated by SLAM.
+    }
+
     if (!isImageFound && document.getElementById('step-title')?.innerText !== '步驟 1') {
       updateStepUI(1);
     }
@@ -263,6 +271,11 @@ function render(timestamp, frame) {
           if (pose) {
             trackingRoot.position.copy(pose.transform.position);
             trackingRoot.quaternion.copy(pose.transform.orientation);
+
+            // LOCK POSITION
+            // Only lock if trackingState is 'tracked' (High quality)
+            window.hasLockedPosition = true;
+            log('Position LOCKED. Ignoring future image updates.');
           }
 
           // State Transition: 1 -> 2
@@ -272,7 +285,6 @@ function render(timestamp, frame) {
           // Auto-hide UI after a few seconds and start experience
           setTimeout(() => {
             updateStepUI(3); // 開始體驗
-            // Optional: Hide UI completely after some time
             setTimeout(() => {
               const uiContainer = document.getElementById('step-instructions-container');
               if (uiContainer) uiContainer.style.display = 'none';
@@ -281,6 +293,11 @@ function render(timestamp, frame) {
         }
       }
     } else if (isImageFound) {
+      // This block handles updates AFTER first found, but we added a lock logic above.
+      // So effectively this block is now unreachable or skipped if hasLockedPosition is true.
+      // We keep it just in case we want to unlock later.
+      if (window.hasLockedPosition) return;
+
       const results = frame.getImageTrackingResults();
       if (results && results.length > 0) {
         const result = results[0];
@@ -304,31 +321,65 @@ function render(timestamp, frame) {
   const poseInfo = document.getElementById('pose-info');
   if (poseInfo) {
     const trackingRoot = scene.getObjectByName('trackingRoot');
+    // If we locked, trackingRoot might be visible but we stopped updating matrix from image results.
+    // But it is still in the scene.
     if (trackingRoot && trackingRoot.visible) {
-      // Clone camera position to avoid modifying the actual camera
-      // But wait, TrackingRoot is moving in World Space to match Image.
-      // Camera is also moving in World Space (WebXR).
-      // We want: Camera Position relative to TrackingRoot.
-
-      // Matrix Math:
-      // LocalPos = ParentInverse * WorldPos
-
-      // More simply using Three.js:
       const relPos = new THREE.Vector3();
-      relPos.copy(camera.position); // World Position
-      trackingRoot.worldToLocal(relPos); // Convert to Local Space of Image
+      relPos.copy(camera.position);
+      trackingRoot.worldToLocal(relPos);
 
-      // Round to 2 decimals
+      // Calculate Rotation (Relative)
+      // Relative Quaternion = Inverse(RootQuat) * CameraQuat
+      const relQuat = trackingRoot.quaternion.clone().invert().multiply(camera.quaternion);
+      const euler = new THREE.Euler().setFromQuaternion(relQuat);
+
+      const r2d = THREE.MathUtils.radToDeg;
+
       const x = relPos.x.toFixed(2);
       const y = relPos.y.toFixed(2);
       const z = relPos.z.toFixed(2);
       const dist = relPos.length().toFixed(2);
 
-      poseInfo.innerText = `REL POS:\nX: ${x}\nY: ${y}\nZ: ${z}\nDIST: ${dist}m`;
+      const rx = (euler.x * r2d).toFixed(0);
+      const ry = (euler.y * r2d).toFixed(0);
+      const rz = (euler.z * r2d).toFixed(0);
+
+      let statusText = window.hasLockedPosition ? "LOCKED" : "TRACKING";
+
+      poseInfo.innerText = `STATUS: ${statusText}\nPOS: ${x}, ${y}, ${z}\nROT: ${rx}, ${ry}, ${rz}\nDIST: ${dist}m`;
     } else {
       poseInfo.innerText = "Scanning...";
     }
   }
+}
+
+// Helper to make thick axes
+function makeThickAxes(size = 0.3, thickness = 0.02) {
+  const group = new THREE.Group();
+
+  const matR = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const matG = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const matB = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+
+  // X Axis
+  const geoX = new THREE.BoxGeometry(size, thickness, thickness);
+  const meshX = new THREE.Mesh(geoX, matR);
+  meshX.position.set(size / 2, 0, 0);
+  group.add(meshX);
+
+  // Y Axis
+  const geoY = new THREE.BoxGeometry(thickness, size, thickness);
+  const meshY = new THREE.Mesh(geoY, matG);
+  meshY.position.set(0, size / 2, 0);
+  group.add(meshY);
+
+  // Z Axis
+  const geoZ = new THREE.BoxGeometry(thickness, thickness, size);
+  const meshZ = new THREE.Mesh(geoZ, matB);
+  meshZ.position.set(0, 0, size / 2);
+  group.add(meshZ);
+
+  return group;
 }
 
 function updateStepUI(step) {
@@ -347,7 +398,7 @@ function updateStepUI(step) {
       break;
     case 2:
       title.innerText = '步驟 2';
-      desc.innerText = 'AR 定位完成！';
+      desc.innerText = '定位成功！(已鎖定)';
       break;
     case 3:
       title.innerText = '步驟 3';
