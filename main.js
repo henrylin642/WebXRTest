@@ -152,8 +152,26 @@ async function processScreenshot(frame, renderer) {
       log('Warning: Camera feed not captured. Snapshot will have default background.');
     }
 
-    // 4. Draw the 3D Scene on top
-    ctx.drawImage(renderer.domElement, 0, 0);
+    // 4. Draw the 3D Scene on top (Direct pixels read from RenderTarget)
+    const rt = new THREE.WebGLRenderTarget(captureCanvas.width, captureCanvas.height);
+    renderer.setRenderTarget(rt);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(null);
+
+    const pixels = new Uint8Array(captureCanvas.width * captureCanvas.height * 4);
+    renderer.readRenderTargetPixels(rt, 0, 0, captureCanvas.width, captureCanvas.height, pixels);
+    rt.dispose();
+
+    const sceneImgData = new ImageData(new Uint8ClampedArray(pixels), captureCanvas.width, captureCanvas.height);
+    const sceneCanvas = document.createElement('canvas');
+    sceneCanvas.width = captureCanvas.width;
+    sceneCanvas.height = captureCanvas.height;
+    sceneCanvas.getContext('2d').putImageData(sceneImgData, 0, 0);
+
+    ctx.save();
+    ctx.scale(1, -1);
+    ctx.drawImage(sceneCanvas, 0, -captureCanvas.height);
+    ctx.restore();
 
     // 5. Output Blob & Share
     captureCanvas.toBlob((blob) => {
