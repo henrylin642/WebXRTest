@@ -247,89 +247,83 @@ function render(timestamp, frame) {
     }
     // ---------------------
 
-    // If already locked, do not search for image results
-    if (window.hasLockedPosition) {
-      return;
-      // Note: We deliberately stop processing image tracking results.
-      // The object remains at its last known position in World Space.
-      // WebXR World Space coordinate system continues to be updated by SLAM.
-    }
+    // --- IMAGE TRACKING UPDATE ---
+    // Only update trackingRoot position if NOT locked yet
+    if (!window.hasLockedPosition) {
 
-    if (!isImageFound && document.getElementById('step-title')?.innerText !== '步驟 1') {
-      updateStepUI(1);
-    }
-
-    if (!isImageFound && results && results.length > 0) {
-      const result = results[0];
-      if (result.trackingState === 'tracked') {
-        const trackingRoot = scene.getObjectByName('trackingRoot');
-        if (trackingRoot) {
-          trackingRoot.visible = true;
-
-          const referenceSpace = renderer.xr.getReferenceSpace();
-          const pose = frame.getPose(result.imageSpace, referenceSpace);
-          if (pose) {
-            trackingRoot.position.copy(pose.transform.position);
-            trackingRoot.quaternion.copy(pose.transform.orientation);
-
-            // LOCK POSITION
-            // Only lock if trackingState is 'tracked' (High quality)
-            window.hasLockedPosition = true;
-            log('Position LOCKED. Ignoring future image updates.');
-          }
-
-          // State Transition: 1 -> 2
-          isImageFound = true;
-          updateStepUI(2); // AR 定位完成
-
-          // Auto-hide UI after a few seconds and start experience
-          setTimeout(() => {
-            updateStepUI(3); // 開始體驗
-            setTimeout(() => {
-              const uiContainer = document.getElementById('step-instructions-container');
-              if (uiContainer) uiContainer.style.display = 'none';
-            }, 3000);
-          }, 2000);
-        }
+      // UI State Management - Initialize Step 1 if not set
+      if (!isImageFound && document.getElementById('step-title')?.innerText !== '步驟 1') {
+        updateStepUI(1);
       }
-    } else if (isImageFound) {
-      // This block handles updates AFTER first found, but we added a lock logic above.
-      // So effectively this block is now unreachable or skipped if hasLockedPosition is true.
-      // We keep it just in case we want to unlock later.
-      if (window.hasLockedPosition) return;
 
-      const results = frame.getImageTrackingResults();
-      if (results && results.length > 0) {
+      if (!isImageFound && results && results.length > 0) {
         const result = results[0];
         if (result.trackingState === 'tracked') {
           const trackingRoot = scene.getObjectByName('trackingRoot');
-          const referenceSpace = renderer.xr.getReferenceSpace();
-          const pose = frame.getPose(result.imageSpace, referenceSpace);
-          if (trackingRoot && pose) {
-            trackingRoot.position.copy(pose.transform.position);
-            trackingRoot.quaternion.copy(pose.transform.orientation);
+          if (trackingRoot) {
+            trackingRoot.visible = true;
+
+            const referenceSpace = renderer.xr.getReferenceSpace();
+            const pose = frame.getPose(result.imageSpace, referenceSpace);
+            if (pose) {
+              trackingRoot.position.copy(pose.transform.position);
+              trackingRoot.quaternion.copy(pose.transform.orientation);
+
+              // LOCK POSITION
+              // Only lock if trackingState is 'tracked' (High quality)
+              window.hasLockedPosition = true;
+              log('Position LOCKED. Ignoring future image updates.');
+            }
+
+            // State Transition: 1 -> 2
+            isImageFound = true;
+            updateStepUI(2); // AR 定位完成
+
+            // Auto-hide UI after a few seconds and start experience
+            setTimeout(() => {
+              updateStepUI(3); // 開始體驗
+              setTimeout(() => {
+                const uiContainer = document.getElementById('step-instructions-container');
+                if (uiContainer) uiContainer.style.display = 'none';
+              }, 3000);
+            }, 2000);
+          }
+        }
+      } else if (isImageFound) {
+        const results = frame.getImageTrackingResults();
+        if (results && results.length > 0) {
+          const result = results[0];
+          if (result.trackingState === 'tracked') {
+            const trackingRoot = scene.getObjectByName('trackingRoot');
+            const referenceSpace = renderer.xr.getReferenceSpace();
+            const pose = frame.getPose(result.imageSpace, referenceSpace);
+            if (trackingRoot && pose) {
+              trackingRoot.position.copy(pose.transform.position);
+              trackingRoot.quaternion.copy(pose.transform.orientation);
+            }
           }
         }
       }
     }
+    // -----------------------------
   }
 
   renderer.render(scene, camera);
 
-  // --- 6DoF DEBUG INFO ---
+  // --- 6DoF DEBUG INFO (ALWAYS RUN) ---
   // Show Camera Position relative to Image (Tracking Root)
   const poseInfo = document.getElementById('pose-info');
   if (poseInfo) {
     const trackingRoot = scene.getObjectByName('trackingRoot');
-    // If we locked, trackingRoot might be visible but we stopped updating matrix from image results.
-    // But it is still in the scene.
+    // Update logic: If locked, trackingRoot is visible and fixed.
+    // If not locked, it might be hidden or moving.
+    // We want to show stats whenever trackingRoot is visible.
     if (trackingRoot && trackingRoot.visible) {
       const relPos = new THREE.Vector3();
       relPos.copy(camera.position);
       trackingRoot.worldToLocal(relPos);
 
       // Calculate Rotation (Relative)
-      // Relative Quaternion = Inverse(RootQuat) * CameraQuat
       const relQuat = trackingRoot.quaternion.clone().invert().multiply(camera.quaternion);
       const euler = new THREE.Euler().setFromQuaternion(relQuat);
 
