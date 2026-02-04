@@ -175,24 +175,55 @@ function render(timestamp, frame) {
 
   if (frame) {
     const results = frame.getImageTrackingResults();
-    if (results && results.length > 0) {
-      const result = results[0];
-      const referenceSpace = renderer.xr.getReferenceSpace(); // Getting current ref space
-      const pose = frame.getPose(result.imageSpace, referenceSpace);
 
-      if (pose) {
-        // Found the image!
-        // result.trackingState can be 'tracked' or 'emulated'
-        if (result.trackingState === 'tracked') {
-          const trackingRoot = scene.getObjectByName('trackingRoot');
-          if (trackingRoot) {
-            trackingRoot.visible = true;
-            // Set position/rotation of the root to match the image
+    // UI State Management - Initialize Step 1 if not set
+    if (!isImageFound && document.getElementById('step-title')?.innerText !== '步驟 1') {
+      updateStepUI(1);
+    }
+
+    if (!isImageFound && results && results.length > 0) {
+      const result = results[0];
+      if (result.trackingState === 'tracked') {
+        const trackingRoot = scene.getObjectByName('trackingRoot');
+        if (trackingRoot) {
+          trackingRoot.visible = true;
+
+          const referenceSpace = renderer.xr.getReferenceSpace();
+          const pose = frame.getPose(result.imageSpace, referenceSpace);
+          if (pose) {
             trackingRoot.position.copy(pose.transform.position);
             trackingRoot.quaternion.copy(pose.transform.orientation);
+          }
 
-            // Optional: Rotate 90 deg? It depends on how the image is defined vs world.
-            // Usually Image Y is up, -Z is normal.
+          // State Transition: 1 -> 2
+          isImageFound = true;
+          updateStepUI(2); // AR 定位完成
+
+          // Auto-hide UI after a few seconds and start experience
+          setTimeout(() => {
+            updateStepUI(3); // 開始體驗
+            // Optional: Hide UI completely after some time
+            setTimeout(() => {
+              const uiContainer = document.getElementById('step-instructions-container');
+              if (uiContainer) uiContainer.style.display = 'none';
+            }, 3000);
+          }, 2000);
+        }
+      }
+    } else if (isImageFound) {
+      // Continue updating position if needed, or lock it?
+      // Usually better to keep updating to correct drift, unless user walks far away.
+      // For this demo, we keep updating if visible.
+      const results = frame.getImageTrackingResults();
+      if (results && results.length > 0) {
+        const result = results[0];
+        if (result.trackingState === 'tracked') {
+          const trackingRoot = scene.getObjectByName('trackingRoot');
+          const referenceSpace = renderer.xr.getReferenceSpace();
+          const pose = frame.getPose(result.imageSpace, referenceSpace);
+          if (trackingRoot && pose) {
+            trackingRoot.position.copy(pose.transform.position);
+            trackingRoot.quaternion.copy(pose.transform.orientation);
           }
         }
       }
@@ -200,4 +231,29 @@ function render(timestamp, frame) {
   }
 
   renderer.render(scene, camera);
+}
+
+function updateStepUI(step) {
+  const container = document.getElementById('step-instructions-container');
+  const title = document.getElementById('step-title');
+  const desc = document.getElementById('step-desc');
+
+  if (!container || !title || !desc) return;
+
+  container.style.display = 'block';
+
+  switch (step) {
+    case 1:
+      title.innerText = '步驟 1';
+      desc.innerText = '請將鏡頭對準海報圖片進行掃描';
+      break;
+    case 2:
+      title.innerText = '步驟 2';
+      desc.innerText = 'AR 定位完成！';
+      break;
+    case 3:
+      title.innerText = '步驟 3';
+      desc.innerText = '開始體驗';
+      break;
+  }
 }
