@@ -453,20 +453,65 @@ async function onARButtonClick() {
     log(`Load Image Tracking... (Width: ${window.currentWidth}m)`);
     const imgBitmap = await createImageBitmap(await (await fetch('/ref_with_led.png')).blob());
 
-    log('Requesting Session...');
-    const session = await navigator.xr.requestSession('immersive-ar', {
-      requiredFeatures: ['image-tracking'],
-      trackedImages: [
-        {
-          image: imgBitmap,
-          widthInMeters: window.currentWidth
-        }
-      ],
-      optionalFeatures: ['dom-overlay'],
-      domOverlay: { root: document.getElementById('ar-overlay-root') }
-    });
+    // --- Progressive Feature Probing ---
+    // Helper to try requesting session with specific features
+    const tryRequestSession = async (levelName, sessionOptions) => {
+      try {
+        log(`Attempting Session Start (${levelName})...`);
+        const session = await navigator.xr.requestSession('immersive-ar', sessionOptions);
+        log(`Success! Started with (${levelName}) configuration.`);
+        return session;
+      } catch (e) {
+        log(`Failed (${levelName}): ${e.message}`);
+        return null;
+      }
+    };
 
-    log('Session created. Scanning for image...');
+    let session = null;
+    const domRoot = document.getElementById('ar-overlay-root');
+
+    // Level 1: Full Capability (Ideal)
+    // - required: image-tracking
+    // - optional: camera-access, dom-overlay
+    // Note: Some devices fail if 'camera-access' is even mentioned in optional.
+    if (!session) {
+      session = await tryRequestSession('Level 1: Full + Camera', {
+        requiredFeatures: ['image-tracking'],
+        trackedImages: [{ image: imgBitmap, widthInMeters: window.currentWidth }],
+        optionalFeatures: ['dom-overlay', 'camera-access'],
+        domOverlay: { root: domRoot }
+      });
+    }
+
+    // Level 2: No Camera Access (Compatibility Mode)
+    // - Removes 'camera-access' entirely
+    if (!session) {
+      session = await tryRequestSession('Level 2: No Camera', {
+        requiredFeatures: ['image-tracking'],
+        trackedImages: [{ image: imgBitmap, widthInMeters: window.currentWidth }],
+        optionalFeatures: ['dom-overlay'],
+        domOverlay: { root: domRoot }
+      });
+    }
+
+    // Level 3: Minimal (Last Resort)
+    // - Removes dom-overlay (in case that's the issue, though rare)
+    // - Only keeps image-tracking
+    if (!session) {
+      session = await tryRequestSession('Level 3: Minimal', {
+        requiredFeatures: ['image-tracking'],
+        trackedImages: [{ image: imgBitmap, widthInMeters: window.currentWidth }]
+      });
+      if (session) {
+        alert('Warning: AR UI might be limited in this mode.');
+      }
+    }
+
+    if (!session) {
+      throw new Error('All configurations failed. Your device might not support Image Tracking.');
+    }
+
+    log('Session active. Initializing scene...');
 
     // Load scene
     sceneManager.loadSceneConfig('scene.json');
