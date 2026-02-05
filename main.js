@@ -462,7 +462,7 @@ async function onARButtonClick() {
           widthInMeters: window.currentWidth
         }
       ],
-      optionalFeatures: ['dom-overlay', 'camera-access'],
+      optionalFeatures: ['dom-overlay'],
       domOverlay: { root: document.getElementById('ar-overlay-root') }
     });
 
